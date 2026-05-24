@@ -1,0 +1,23 @@
+[project]
+name = "modern"
+version = "0.1.0"
+description = "App for modern mechanics"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8.4.0",
+    "click-shell>=2.1",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.3",
+    "plotly",
+    "streamlit>=1.57.0",
+    "textual>=8.2.7",
+]
+
+[project.scripts]
+modern = "modern.cli:cli"
+tui = "modern.tui:main"
+
+
+[tool.uv]
+package = true
