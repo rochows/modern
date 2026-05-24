@@ -38,9 +38,11 @@ def verify_password(password: str, hashed: str) -> bool:
 
 
 def init_auth_db():
-    """Создаёт таблицу пользователей."""
+    """Создаёт таблицу пользователей и механиков."""
     with get_db() as conn:
         cursor = conn.cursor()
+        
+        # Таблица пользователей
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,7 +56,19 @@ def init_auth_db():
             )
         ''')
         
-        # Создаём админа по умолчанию, если нет пользователей
+        # Таблица механиков
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS mechanics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                specialty TEXT,
+                phone TEXT,
+                active INTEGER DEFAULT 1,
+                created_at DATE
+            )
+        ''')
+        
+        # Создаём админа по умолчанию
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             admin_pass = hash_password("admin123")
@@ -63,6 +77,21 @@ def init_auth_db():
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', ('admin', admin_pass, 3, 'Administrator', datetime.now().isoformat(), 1))
             click.echo(click.style("Создан пользователь admin (пароль: admin123)", fg='yellow'))
+        
+        # Добавляем механиков по умолчанию
+        cursor.execute("SELECT COUNT(*) FROM mechanics")
+        if cursor.fetchone()[0] == 0:
+            default_mechanics = [
+                ('Иванов А.И.', 'Гидравлика', '+7-999-123-45-67'),
+                ('Петров С.В.', 'Двигатели', '+7-999-123-45-68'),
+                ('Сидоров Д.М.', 'Электрика', '+7-999-123-45-69'),
+                ('Кузнецов В.А.', 'Ходовая часть', '+7-999-123-45-70'),
+            ]
+            for name, specialty, phone in default_mechanics:
+                cursor.execute('''
+                    INSERT INTO mechanics (name, specialty, phone, active, created_at)
+                    VALUES (?, ?, ?, 1, ?)
+                ''', (name, specialty, phone, datetime.now().isoformat()))
         
         conn.commit()
 
@@ -75,7 +104,6 @@ def authenticate(username: str, password: str) -> dict | None:
         user = cursor.fetchone()
         
         if user and verify_password(password, user[2]):
-            # Обновляем время последнего входа
             cursor.execute("UPDATE users SET last_login = ? WHERE id = ?", (datetime.now().isoformat(), user[0]))
             conn.commit()
             return {
@@ -138,6 +166,47 @@ def disable_user(username: str):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("UPDATE users SET active = 0 WHERE username = ?", (username,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+# ------------------------ ФУНКЦИИ ДЛЯ РАБОТЫ С МЕХАНИКАМИ ------------------------
+def get_mechanics():
+    """Возвращает список активных механиков."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, specialty, phone FROM mechanics WHERE active = 1 ORDER BY name")
+        return cursor.fetchall()
+
+
+def add_mechanic(name: str, specialty: str = None, phone: str = None):
+    """Добавляет нового механика."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO mechanics (name, specialty, phone, active, created_at)
+            VALUES (?, ?, ?, 1, ?)
+        ''', (name, specialty, phone, datetime.now().isoformat()))
+        conn.commit()
+        return True
+
+
+def update_mechanic(mechanic_id: int, name: str, specialty: str = None, phone: str = None):
+    """Обновляет данные механика."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE mechanics SET name=?, specialty=?, phone=? WHERE id=?
+        ''', (name, specialty, phone, mechanic_id))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def delete_mechanic(mechanic_id: int):
+    """Удаляет механика (мягкое удаление)."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE mechanics SET active = 0 WHERE id = ?", (mechanic_id,))
         conn.commit()
         return cursor.rowcount > 0
 
