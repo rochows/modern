@@ -9,6 +9,7 @@ dependencies = [
     "click-shell>=2.1",
     "openpyxl>=3.1.5",
     "pandas>=3.0.3",
+    "pillow>=12.2.0",
     "plotly",
     "streamlit>=1.57.0",
     "textual>=8.2.7",
